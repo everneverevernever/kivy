@@ -2,7 +2,7 @@ from kivymd.app import MDApp
 from kivy.uix.screenmanager import ScreenManager
 from screens import LoginScreen, ProductListScreen, AddProductScreen, ProductDetailScreen, RegistrationScreen, \
     TableSelectionScreen, UserProfileScreen, TableManagementScreen, AdminScreen, UserScreen, UsersTableScreen, \
-    UsersDetailScreen, PasswordResetScreen, PasswordResetConfirmScreen
+    UsersDetailScreen, PasswordResetScreen, PasswordResetConfirmScreen, LogsTableScreen
 from database import create_db, add_user
 from kivymd.uix.button import MDIconButton
 from kivymd.uix.boxlayout import MDBoxLayout
@@ -21,6 +21,7 @@ class MyApp(MDApp):
         self.screen_manager.add_widget(ProductListScreen(name="product_list_screen"))
         self.screen_manager.add_widget(ProductDetailScreen(name="product_detail_screen"))
         self.screen_manager.add_widget(UsersTableScreen(name="users_list_screen"))
+        self.screen_manager.add_widget(LogsTableScreen(name="logs_users_screen"))
         self.screen_manager.add_widget(UsersDetailScreen(name="users_detail_screen"))
         self.screen_manager.add_widget(AddProductScreen(name="add_product_screen"))
         self.screen_manager.add_widget(AdminScreen(name="admin_screen"))

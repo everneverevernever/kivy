@@ -2,8 +2,9 @@ from kivy.metrics import dp
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.datatables import MDDataTable
 from kivymd.uix.screen import MDScreen
+from kivymd.uix.selectioncontrol import MDCheckbox
 from kivymd.uix.textfield import MDTextField
-from kivymd.uix.button import MDRaisedButton, MDIconButton
+from kivymd.uix.button import MDRaisedButton, MDIconButton, MDTextButton
 from kivy.uix.label import Label
 from kivymd.uix.label import MDLabel
 from kivymd.uix.dialog import MDDialog
@@ -14,7 +15,50 @@ from database import *
 from kivy.uix.dropdown import DropDown
 from kivymd.uix.menu import MDDropdownMenu
 
+class LogsTableScreen(MDScreen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        layout = MDBoxLayout(orientation='vertical', spacing=20, padding=(50, 150), pos_hint={'center_x': 0.5, 'center_y': 0.5})
 
+        # Карточка для списка пользователей
+        card = MDCard(orientation='vertical', padding=20, spacing=20, size_hint=(0.8, None), height=400, radius=[15,])
+
+        title = MDLabel(text="Список транзакций", font_size=24, halign="center", size_hint_y=None, height=50)
+        card.add_widget(title)
+
+        self.scroll_view = ScrollView()
+        self.product_list = MDList()
+        self.scroll_view.add_widget(self.product_list)
+        card.add_widget(self.scroll_view)
+
+        self.add_product_button = MDRaisedButton(text="Назад", pos_hint={'center_x': 0.5}, size_hint_x=0.6, on_release=self.go_back)
+        card.add_widget(self.add_product_button)
+
+        layout.add_widget(card)
+        self.add_widget(layout)
+
+        self.load_products()
+
+    def go_back(self, instance):
+        """Возвращается на экран списка товаров"""
+        self.manager.current = 'product_list_screen'  # Переход на экран списка товаров
+
+
+    def load_products(self):
+        products = get_all_logs()
+        self.product_list.clear_widgets()
+
+        for product in products:
+            item = OneLineListItem(text=f"ID: {product[0]} - ID_Продукта: {product[1]} - Количество добавленного: {product[2]} - Дата: {product[3]} ")
+            item.bind(on_release=lambda x, product=product: self.show_product_detail(product))
+            self.product_list.add_widget(item)
+
+    def show_product_detail(self, product):
+        self.manager.get_screen('users_detail_screen').display_product(product[0])
+        self.manager.current = "users_detail_screen"
+
+    def refresh_product_list(self):
+        self.load_products()
 class UsersTableScreen(MDScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -240,7 +284,7 @@ class UserProfileScreen(MDScreen):
         layout = MDBoxLayout(orientation="vertical", spacing=20, padding=20)
 
         # Карточка для профиля пользователя
-        card = MDCard(orientation='vertical', padding=20, spacing=20, size_hint=(0.8, None), height=350, radius=[15,])
+        card = MDCard(orientation='vertical', padding=(50, 150), pos_hint={'center_x': 0.5, 'center_y': 0.5})
 
         # Заголовок
         card.add_widget(MDLabel(
@@ -249,19 +293,22 @@ class UserProfileScreen(MDScreen):
             font_style="H4"
         ))
 
-        # Имя пользователя
-        card.add_widget(MDLabel(
+
+        # Имя пользователя (сохраним в self для изменения позже)
+        self.user_label = MDLabel(
             text=f"Имя пользователя: {self.username}",
             halign="center",
             font_style="Subtitle1"
-        ))
+        )
+        card.add_widget(self.user_label)
 
         # Роль пользователя
-        card.add_widget(MDLabel(
+        self.role = MDLabel(
             text=f"Роль: {self.role}",
             halign="center",
             font_style="Subtitle1"
-        ))
+        )
+        card.add_widget(self.role)
 
         # Кнопка настройки темы
         theme_button = MDRaisedButton(
@@ -270,6 +317,11 @@ class UserProfileScreen(MDScreen):
             on_release=self.toggle_theme
         )
         card.add_widget(theme_button)
+
+        self.add_product_button = MDRaisedButton(text="Назад",
+                                                 pos_hint={"center_x": 0.5},
+                                                 on_release=self.go_back)
+        card.add_widget(self.add_product_button)
 
         # Кнопка выхода
         logout_button = MDRaisedButton(
@@ -282,6 +334,26 @@ class UserProfileScreen(MDScreen):
         layout.add_widget(card)
         self.add_widget(layout)
 
+    def go_back(self, instance):
+        """Возвращается на экран списка товаров"""
+        self.manager.current = 'product_list_screen'  # Переход на экран списка товаров
+
+    def toggle_user(self):
+        # Пример изменения текста
+        new_username = self.manager.get_screen('login_screen').get_username()
+        new_role = check_role(new_username)
+        self.user_label.text = f"Имя пользователя: {new_username}"
+        self.role.text = f"Роль: {new_role}"
+
+
+    # def toggle_user(self):
+    #     # Получаем имя пользователя с экрана авторизации
+    #     username = self.manager.get_screen('login_screen').get_username()
+    #
+    #     # Обновляем текст лейбла
+    #     self.user_label.text = f"Имя пользователя: {username}"
+    #     self.user_label.refresh()  # Обновляем лейбл для отображения изменений
+
     def toggle_theme(self, instance):
         """Переключение между светлой и тёмной темой."""
         if self.theme_cls.theme_style == "Light":
@@ -291,7 +363,7 @@ class UserProfileScreen(MDScreen):
 
     def logout(self, instance):
         """Функция выхода из аккаунта."""
-        self.manager.current = "login"  # Переключение на экран входа
+        self.manager.current = "login_screen"  # Переключение на экран входа
 
 
 
@@ -347,48 +419,133 @@ class TableSelectionScreen(MDScreen):
         # Здесь логика для отображения данных таблицы
         print(f"Данные из таблицы {table_name} загружаются...")
 
-from kivymd.uix.card import MDCard
+from kivymd.app import MDApp
+from kivy.uix.screenmanager import ScreenManager
+from kivymd.uix.screen import MDScreen
 from kivymd.uix.textfield import MDTextField
-from kivymd.uix.button import MDRaisedButton
+from kivymd.uix.button import MDRaisedButton, MDIconButton
 from kivymd.uix.label import MDLabel
 from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.gridlayout import MDGridLayout
+from kivymd.uix.behaviors import BackgroundColorBehavior
+from kivymd.uix.card import MDCard
+from kivymd.uix.dialog import MDDialog
+from kivy.metrics import dp
+
+from kivymd.app import MDApp
+from kivy.uix.screenmanager import ScreenManager
 from kivymd.uix.screen import MDScreen
+from kivymd.uix.textfield import MDTextField
+from kivymd.uix.button import MDRaisedButton, MDIconButton
+from kivymd.uix.label import MDLabel
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.gridlayout import MDGridLayout
+from kivymd.uix.card import MDCard
+from kivymd.uix.dialog import MDDialog
+from kivy.metrics import dp
+
+from kivy.metrics import dp
+from kivymd.uix.screen import MDScreen
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.card import MDCard
+from kivymd.uix.textfield import MDTextField
+from kivymd.uix.label import MDLabel
+from kivymd.uix.button import MDRaisedButton, MDIconButton, MDTextButton
+
+from kivymd.uix.dialog import MDDialog
+
 
 class LoginScreen(MDScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        layout = MDBoxLayout(orientation='vertical', spacing=20, padding=(50, 150), pos_hint={'center_x': 0.5, 'center_y': 0.5})
+
+        # Основной макет
+        layout = MDBoxLayout(orientation="vertical", padding=dp(20), spacing=dp(20))
 
         # Карточка для авторизации
-        card = MDCard(orientation='vertical', padding=20, spacing=20, size_hint=(0.8, None), height=400, radius=[15,])
+        card = MDCard(
+            orientation="vertical",
+            padding=dp(20),
+            spacing=dp(15),
+            size_hint=(0.9, None),
+            height=dp(400),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+            radius=[dp(15)],
+        )
 
-        title = MDLabel(text="Авторизация", font_size=24, halign="center", size_hint_y=None, height=50)
-        card.add_widget(title)
+        # Заголовок
+        title_layout = MDBoxLayout(
+            orientation="horizontal",
+            spacing=dp(10),
+            adaptive_height=True,
+            size_hint_y=None,
+        )
+        title_icon = MDIconButton(icon="login", icon_size="32sp")
 
-        self.username_input = MDTextField(hint_text="Имя пользователя", pos_hint={'center_x': 0.5}, size_hint_x=0.8)
-        self.password_input = MDTextField(hint_text="Пароль", password=True, pos_hint={'center_x': 0.5}, size_hint_x=0.8)
+        title_label = MDLabel(
+            text="Авторизация", font_style="H5", halign="center", size_hint_y=None
+        )
+        title_layout.add_widget(title_icon)
+        title_layout.add_widget(title_label)
+        card.add_widget(title_layout)
 
+        # Поля ввода
+        self.username_input = MDTextField(
+            hint_text="Имя пользователя",
+            size_hint_x=1,
+            mode="rectangle",
+        )
+        self.password_input = MDTextField(
+            hint_text="Пароль",
+            password=True,
+            size_hint_x=1,
+            mode="rectangle",
+        )
         card.add_widget(self.username_input)
         card.add_widget(self.password_input)
 
-        button_layout = MDBoxLayout(spacing=10, size_hint_y=None, height=100)
-        self.login_button = MDRaisedButton(text="Войти", pos_hint={'center_x': 0.5}, size_hint_x=0.6)
-        self.login_button.bind(on_release=self.login)
-        button_layout.add_widget(self.login_button)
+        # Запомнить меня
+        remember_me_layout = MDBoxLayout(
+            orientation="horizontal", adaptive_height=True, spacing=dp(10)
+        )
+        remember_me_checkbox = MDCheckbox(size_hint=(None, None), size=(dp(24), dp(24)))
+        remember_me_label = MDLabel(
+            text="Запомнить меня",
+            halign="left",
+            valign="center",
+            size_hint_y=None,
+            height=dp(24),
+        )
+        remember_me_layout.add_widget(remember_me_checkbox)
+        remember_me_layout.add_widget(remember_me_label)
+        card.add_widget(remember_me_layout)
 
-        self.register_button = MDRaisedButton(text="Зарегистрироваться", pos_hint={'center_x': 0.5}, size_hint_x=0.6)
-        self.register_button.bind(on_release=self.go_to_registration)
-        button_layout.add_widget(self.register_button)
+        # Кнопка входа
+        self.login_button = MDRaisedButton(
+            text="Войти", size_hint=(0.5, None), height=dp(48), pos_hint={"center_x": 0.5, }, on_release=self.login
+        )
+        card.add_widget(self.login_button)
 
-        self.reset_password_button = MDRaisedButton(text="Восстановить пароль", pos_hint={'center_x': 0.5}, size_hint_x=0.6)
-        self.reset_password_button.bind(on_release=self.go_to_password_reset)
-        button_layout.add_widget(self.reset_password_button)
+        # Ссылки "Забыли пароль?" и "Регистрация"
+        link_layout = MDBoxLayout(
+            orientation="vertical",
+            spacing=dp(5),
+            size_hint=(1, None),
+            adaptive_height=True,
+            pos_hint={"center_x": 0.5},
+            on_release=self.go_to_password_reset
+        )
+        forgot_password_button = MDTextButton(text="Забыли пароль?", on_release=self.go_to_password_reset)
+        register_button = MDTextButton(text="Регистрация", on_release=self.go_to_registration)
+        link_layout.add_widget(forgot_password_button)
+        link_layout.add_widget(register_button)
 
-        card.add_widget(button_layout)
-
+        card.add_widget(link_layout)
         layout.add_widget(card)
         self.add_widget(layout)
 
+    def get_username(self):
+        return self.username_input.text
     def go_to_registration(self, instance):
         # Переход на экран регистрации
         self.manager.current = "registration_screen"
@@ -411,6 +568,7 @@ class LoginScreen(MDScreen):
             role = check_role(username)
             if role == "admin":
                 self.manager.current = "admin_screen"
+                self.manager.get_screen('product_list_screen').on_button()
             else:
                 self.manager.current = "user_screen"
                 self.manager.get_screen('product_list_screen').hide_button()
@@ -418,6 +576,7 @@ class LoginScreen(MDScreen):
             # Передача логина и роли в UserProfileScreen
             user_profile_screen = UserProfileScreen(username=username, role=role, name="user_profile_screen")
             self.manager.add_widget(user_profile_screen)
+            self.manager.get_screen("user_profile_screen").toggle_user()
             self.manager.current = "product_list_screen"  # Переключаем на главный экран
         else:
             self.show_dialog("Ошибка", "Неверное имя пользователя или пароль.")
@@ -435,6 +594,49 @@ class LoginScreen(MDScreen):
     def close_dialog(self, instance):
         """Закрытие диалога."""
         self.dialog.dismiss()
+
+
+class MyApp(MDApp):
+    def build(self):
+        self.screen_manager = ScreenManager()
+
+        # Добавление экранов
+        self.screen_manager.add_widget(LoginScreen(name="login_screen"))
+        # Добавьте остальные экраны здесь
+
+        return self.screen_manager
+
+    def toggle_theme(self, instance):
+        # Переключение между светлой и тёмной темой
+        if self.theme_cls.theme_style == "Light":
+            self.theme_cls.theme_style = "Dark"
+        else:
+            self.theme_cls.theme_style = "Light"
+
+if __name__ == "__main__":
+    MyApp().run()
+
+
+class MyApp(MDApp):
+    def build(self):
+        self.screen_manager = ScreenManager()
+
+        # Добавление экранов
+        self.screen_manager.add_widget(LoginScreen(name="login_screen"))
+        # Добавьте остальные экраны здесь
+
+        return self.screen_manager
+
+    def toggle_theme(self, instance):
+        # Переключение между светлой и тёмной темой
+        if self.theme_cls.theme_style == "Light":
+            self.theme_cls.theme_style = "Dark"
+        else:
+            self.theme_cls.theme_style = "Light"
+
+if __name__ == "__main__":
+    MyApp().run()
+
 
 
 
@@ -567,7 +769,7 @@ class ProductListScreen(MDScreen):
         layout = MDBoxLayout(orientation='vertical', spacing=20, padding=(50, 150), pos_hint={'center_x': 0.5, 'center_y': 0.5})
 
         # Карточка для списка продуктов
-        card = MDCard(orientation='vertical', padding=20, spacing=20, size_hint=(0.8, None), height=400, radius=[15,])
+        card = MDCard(orientation='vertical', padding=20, spacing=20, size_hint=(0.8, None), height=700, radius=[15,])
 
         title = MDLabel(text="Список продуктов", font_size=24, halign="center", size_hint_y=None, height=50)
         card.add_widget(title)
@@ -585,17 +787,32 @@ class ProductListScreen(MDScreen):
         self.users_button.bind(on_release=self.go_to_users_table)
         card.add_widget(self.users_button)
 
+        self.logs_users_button = MDRaisedButton(text="Логирование", pos_hint={'center_x': 0.5}, size_hint_x=0.6)
+        self.logs_users_button.bind(on_release=self.go_to_logs_users_button)
+        card.add_widget(self.logs_users_button)
+
         layout.add_widget(card)
         self.add_widget(layout)
 
         self.load_products()
+    def on_button(self):
+        self.users_button.opacity = 1
+        self.users_button.disabled = False
 
+        self.logs_users_button.opacity = 1
+        self.logs_users_button.disabled = False
     def hide_button(self):
         self.users_button.opacity = 0
         self.users_button.disabled = True
 
+        self.logs_users_button.opacity = 0
+        self.logs_users_button.disabled = True
+
     def go_to_users_table(self, instance):
         self.manager.current = 'users_list_screen'
+
+    def go_to_logs_users_button(self, instance):
+        self.manager.current = 'logs_users_screen'
 
     def go_to_add_product_screen(self, instance):
         self.manager.current = 'add_product_screen'
@@ -719,7 +936,14 @@ class PasswordResetScreen(MDScreen):
         layout.add_widget(self.reset_button)
 
         self.add_widget(layout)
+        self.add_product_button = MDRaisedButton(text="Назад",
+                                                 pos_hint={'center_x': 0.5}, size_hint_x=0.6,
+                                                 on_release=self.go_back)
+        layout.add_widget(self.add_product_button)
 
+    def go_back(self, instance):
+        """Возвращается на экран списка товаров"""
+        self.manager.current = 'login_screen'  # Переход на экран списка товаров
     def reset_password(self, instance):
         email = self.email_input.text
         success = reset_user_password(email)

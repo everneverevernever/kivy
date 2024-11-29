@@ -90,6 +90,15 @@ def get_all_users():
     connection.close()
     return users
 
+def get_all_logs():
+    """Возвращает список всех продуктов из базы данных"""
+    connection = sqlite3.connect('database.db')
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM transactions")  # Запрос всех продуктов
+    users = cursor.fetchall()
+    connection.close()
+    return users
+
 def get_product_by_id(product_id):
     """Возвращает данные о продукте по его ID"""
     connection = sqlite3.connect('database.db')
